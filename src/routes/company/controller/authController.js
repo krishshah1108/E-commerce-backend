@@ -1,6 +1,7 @@
 import models from "../../../models/zindex.js";
 import response from "../../../utils/response_util.js";
-import bcrypt from "bcryptjs";
+import encryptorUtil from "../../../utils/encryptor_util.js";
+import helperUtil from "../../../utils/helper_util.js";
 
 const companyRegistration = async (req, res) => {
     try {
@@ -8,7 +9,7 @@ const companyRegistration = async (req, res) => {
         if(!name || !email || !mobileNo || !address || !password || !registrationNumber || !GSTIN){
             return response.validationErr("All fields are required", res);
         }
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = encryptorUtil.encrypt(password);
         const newCompany = new models.Company({
             name,
             email,
@@ -19,7 +20,9 @@ const companyRegistration = async (req, res) => {
             GSTIN
         });
         await newCompany.save();
-        return response.success("Company registered successfully", newCompany, res);
+        const token = helperUtil.generateToken({companyId : newCompany._id});
+        const encryptedToken = encryptorUtil.encrypt(token);    
+        return response.success("Company registered successfully", encryptedToken, res);
     } catch (error) {
         return response.failure(error, res);
     }
@@ -35,11 +38,13 @@ const companyLogin = async (req, res) => {
         if(!companyFound){
             return response.badRequest('Invalid credentials',res);
         }
-        const passwordMatch = await bcrypt.compare(password, companyFound.password);
+        const passwordMatch = encryptorUtil.decrypt(companyFound.password) === password;
         if(!passwordMatch){
             return response.badRequest('Invalid credentials',res);
         }
-        return response.success("Company login successful", companyFound, res);
+        const token = helperUtil.generateToken({companyId : companyFound._id});
+        const encryptedToken = encryptorUtil.encrypt(token);    
+        return response.success("Company login successful", encryptedToken, res);
         
     } catch (error) {
         return response.failure(error, res);
